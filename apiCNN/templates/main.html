@@ -1,0 +1,263 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <title>Flores</title>
+</head>
+
+<body>
+    <style>
+        body {
+            background-color: rgb(53, 53, 53);
+        }
+        
+        .jump {
+            height: 5px;
+            clear: both;
+        }
+        
+        header {
+            width: 100%;
+            color: rgb(0, 128, 220);
+            background-color: rgb(40, 40, 40);
+            float: left;
+        }
+        
+        ul {
+            /*list-style-type: none;*/
+            margin-right: 30px;
+        }
+        
+        li {
+            margin-bottom: 10px;
+        }
+        
+        a,
+        h2 {
+            text-decoration: none;
+            color: rgb(0, 128, 220);
+        }
+        
+        a:hover {
+            color: #B5B5A5;
+        }
+        
+        .table {
+            margin-left: 15%;
+            width: 70%;
+            border-radius: 7%;
+            text-align: center;
+            background-color: rgb(40, 40, 40);
+            border: solid rgb(233, 133, 133);
+        }
+        
+        td {
+            color: rgb(223, 238, 255);
+        }
+        
+        .titulo {
+            text-align: center;
+            color: rgb(233, 133, 133) !important;
+        }
+        
+        form {
+            text-align: center;
+            background-color: rgb(40, 40, 40);
+            border: solid rgb(0, 128, 220);
+            border-radius: 7%;
+        }
+        
+        input {
+            width: max-content;
+        }
+        
+        footer {
+            text-align: center;
+            clear: both;
+        }
+        
+        footer fieldset {
+            display: inline;
+            width: 30%;
+            font-size: small;
+        }
+    </style>
+
+    <script>
+        function previewImageInput() {
+            let preview = document.getElementById('img_tag')
+            let file = document.querySelector('input[type=file]').files[0];
+            let reader = new FileReader();
+
+            reader.addEventListener('load', function() {
+                preview.src = reader.result;
+            }, false);
+            if (file) {
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function getBase64(file) {
+            var reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = function() {
+                sendData(reader.result);
+            }
+        }
+
+        function sendData(data) {
+            var token = document.getElementsByName('csrfmiddlewaretoken');
+            let form = $('form')[0];
+            $.ajax({
+                type: 'POST',
+                url: '/apiCNN/predecir/',
+                data: {
+                    'mydata': data,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data, textStatus) {
+                    json = JSON.stringify(data);
+                    json = JSON.parse(json);
+                    document.getElementById('clase').innerHTML = "<strong>Clase Predicha: </strong>" + json.clase
+                    document.getElementById('probabilidad').innerHTML = "<strong>Probabilidad: </strong>" + json.probabilidad + '%'
+                    document.getElementById('div_prediccion').style.display = 'block'
+                    document.getElementById("div_prediccion").scrollIntoView();
+                },
+                error: function(xhr, status, e) {
+                    alert(status, e);
+                }
+            });
+        }
+
+        function listarRegistros() {
+            $.ajax({
+                type: 'POST',
+                url: '/apiCNN/listar/',
+                data: {
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    json = JSON.parse(data);
+                    let tag_str = "";
+                    document.getElementById('tabla').style.visibility = 'visible';
+                    for (let i = 0; i < json.length; i++) {
+                        let obj = json[i];
+                        if (obj.fields.image_name !== undefined) {
+                            tag_str += "<tr>" +
+                                "<td><img src=/media/" + obj.fields.image_name + "></td>" +
+                                "<td>" + obj.fields.flower_predicted + "</td>" +
+                                "<td>" + obj.fields.flower_percentage + "%</td>" +
+                                "</tr>";
+                        }
+                    }
+                    document.getElementById('table_content').innerHTML = tag_str;
+                    document.getElementById("tabla").scrollIntoView();
+                }
+            });
+
+        }
+
+        async function enviar() {
+            let file = document.getElementById('elm_img').files[0];
+            if (!requeried(document.getElementById('elm_img'))) {
+                getBase64(file);
+            } else {
+                alert('Debe Seleccionar una Imagen');
+            }
+
+        }
+
+        function requeried(inputtx) {
+            return inputtx.value.length === 0;
+        }
+    </script>
+
+    <header style="text-align: center;">
+        <h2>Pagina para prediccion de imagenes</h2>
+        <br>
+
+    </header>
+
+    <div class="jump"></div>
+
+    <nav>
+        <ul style="text-align: center;">
+            <li style=" display: inline; padding-right: 10px; padding-left: 10px; font-size: 23px;"><a href="#">Inicio</a></li>
+            <li style="display: inline; padding-right: 10px; padding-left: 10px; font-size: 23px;"><a onclick="listarRegistros()">Listar Registros</a></li>
+        </ul>
+    </nav>
+
+    <div class="jump"></div>
+
+    <div style="
+        width: 100%;
+        max-width: 1400px;
+        position: relative;
+        margin-left: auto;
+        margin-right: auto;
+        ">
+        {% block content %}
+        <form action="/apiCNN/predecir/" enctype="multipart/form-data" method="POST">
+            {% csrf_token %}
+
+            <div class="item">
+                <input id="elm_img" style="margin-left: 37%;" name="elm_img" type="file" accept="image/x-png, image/jpeg" onchange="previewImageInput()" />
+            </div>
+            <br>
+
+            <div class="item">
+                <img id="img_tag" src="" style="width: 50%; height: 50%;
+                                                margin-left: auto;
+                                                margin-right: auto;" name="img_tag" alt="" /><br>
+            </div>
+
+            <div>
+                <input id="predict" type="button" onclick="enviar()" value="Hacer Prediccion" />
+            </div>
+
+        </form>
+
+        {% endblock %}
+    </div>
+
+    <div id="div_prediccion" class="container" style="margin-top: 4%;
+        margin-bottom: 4%;
+        border-top: solid 2px;
+        border-bottom: solid 2px;
+        display: none">
+        <h2 id="clase"><strong>Clase Predicha: </strong></h2>
+        <h2 id="probabilidad"><strong>Probabilidad: </strong></h2>
+    </div>
+
+    <div class="jump"></div>
+    <div class="jump"></div>
+
+    <table id='tabla' class="table" style="visibility: hidden">
+        <thead>
+            <tr>
+                <th scope="col" class="titulo">Imagen</th>
+                <th scope="col" class="titulo">Flor Predecida</th>
+                <th scope="col" class="titulo">Probabilidad</th>
+            </tr>
+        </thead>
+        <tbody id="table_content">
+        </tbody>
+    </table>
+
+    <footer style="background-color: rgb(40, 40, 40);">
+        <span> 
+            <p style="color: floralwhite;">Realizado por: Pablo Loja, Robbyn Reyes</p>
+        </span>
+        <img src="https://www.ups.edu.ec/ups_portal-theme/images/ups/home/logo-ups-home.png" alt="Logo" width="450" height="100" />
+
+    </footer>
+</body>
+
+</html>
